@@ -15,8 +15,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get the Google Apps Script URL from environment variable
-    const SHEETS_URL = process.env.GOOGLE_SHEETS_URL || req.body.sheetsUrl || req.query.sheetsUrl;
+    // Get the Google Apps Script URL from environment variable or request
+    const SHEETS_URL = process.env.GOOGLE_SHEETS_URL ||
+                       (req.query && req.query.sheetsUrl) ||
+                       (req.body && req.body.sheetsUrl);
 
     if (!SHEETS_URL) {
       return res.status(400).json({
