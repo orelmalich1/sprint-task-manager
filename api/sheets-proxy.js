@@ -32,13 +32,30 @@ export default async function handler(req, res) {
       const action = req.query.action || 'getAll';
       const url = `${SHEETS_URL}?action=${action}`;
 
+      console.log('Fetching from URL:', url);
+
       const response = await fetch(url, {
         method: 'GET',
         redirect: 'follow'
       });
 
-      const data = await response.json();
-      return res.status(200).json(data);
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      const text = await response.text();
+      console.log('Response body (first 200 chars):', text.substring(0, 200));
+
+      try {
+        const data = JSON.parse(text);
+        return res.status(200).json(data);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError.message);
+        return res.status(500).json({
+          success: false,
+          error: `Invalid response from Google Sheets: ${text.substring(0, 100)}...`,
+          details: 'The Google Apps Script returned HTML instead of JSON. Please verify your Web App URL and deployment settings.'
+        });
+      }
     }
 
     // Handle POST requests (Push)
