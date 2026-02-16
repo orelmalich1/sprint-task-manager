@@ -1,24 +1,35 @@
-import logo from './logo.svg';
-import './App.css';
+import React from 'react';
+import { AppProvider } from './context/AppContext';
+import DeveloperManager from './components/DeveloperManager';
+import RcDateManager from './components/RcDateManager';
+import QuarterSelector from './components/QuarterSelector';
+import SprintTimeline from './components/SprintTimeline';
+import AddTaskButton from './components/AddTaskButton';
+import GoogleSheetSync from './components/GoogleSheetSync';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <AppProvider>
+      <div className="app-container">
+        <div className="toolbar">
+          <div className="toolbar-left">
+            <h1>Nanit Home Planning 2026</h1>
+            <QuarterSelector />
+          </div>
+          <div className="toolbar-controls">
+            <GoogleSheetSync />
+            <DeveloperManager />
+            <RcDateManager />
+          </div>
+        </div>
+
+        <div className="timeline-container">
+          <SprintTimeline />
+        </div>
+
+        <AddTaskButton />
+      </div>
+    </AppProvider>
   );
 }
 
