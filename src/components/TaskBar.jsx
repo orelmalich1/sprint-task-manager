@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useDragResize } from '../hooks/useDragResize';
 import { useDragTask } from '../hooks/useDragTask';
@@ -27,6 +27,7 @@ const TaskBar = ({ task }) => {
   const { FIRST_SPRINT, LAST_SPRINT, TOTAL_SPRINTS } = useQuarterSprints();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [form, setForm] = useState({});
+  const taskRef = useRef(null);
 
   const {
     isDragging: isResizing,
@@ -77,6 +78,7 @@ const TaskBar = ({ task }) => {
   return (
     <>
       <div
+        ref={taskRef}
         className={`task-bar ${isDragging ? 'dragging' : ''}`}
         style={{
           left: `${leftPosition}px`,
@@ -85,7 +87,7 @@ const TaskBar = ({ task }) => {
           top: '16px',
         }}
         onClick={openDialog}
-        onMouseDown={(e) => handleDragStart(e)}
+        onMouseDown={(e) => handleDragStart(e, taskRef.current)}
       >
         <div className="resize-handle resize-handle-left" onMouseDown={handleMouseDownLeft} onClick={(e) => e.stopPropagation()} />
         <span className="task-title">{task.title}</span>
