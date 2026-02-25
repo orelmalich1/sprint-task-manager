@@ -72,6 +72,12 @@ const GitHubSync = () => {
   };
 
   const syncFromGist = async (showStatus = true) => {
+    if (showStatus && state.tasks.length > 0) {
+      const confirmed = window.confirm(
+        `⚠️ Pull will replace ALL current data (${state.tasks.length} tasks, ${state.developers.length} developers) with data from GitHub.\n\nMake sure you've Pushed first so nothing is lost.\n\nContinue?`
+      );
+      if (!confirmed) return;
+    }
     setIsSyncing(true);
     if (showStatus) setSyncStatus('Pulling from GitHub...');
     try {
@@ -94,7 +100,7 @@ const GitHubSync = () => {
           const name = (sheetDev.name || '').trim();
           if (name) {
             const dev = {
-              id: sheetDev.id || `dev-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: sheetDev.id || `dev-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               name,
               startDate: sheetDev.startDate || null,
               endDate: sheetDev.endDate || null,
@@ -107,7 +113,7 @@ const GitHubSync = () => {
         if (Object.keys(developerMap).length === 0 && result.tasks?.length > 0) {
           [...new Set(result.tasks.map(t => (t.developer || '').trim()).filter(Boolean))].forEach(name => {
             const dev = {
-              id: `dev-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: `dev-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               name,
               startDate: null,
               endDate: null,
@@ -121,7 +127,7 @@ const GitHubSync = () => {
           const developerId = developerMap[(t.developer || '').trim()];
           if (developerId) {
             addTask({
-              id: t.id || `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              id: t.id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               title: (t.title || '').trim(),
               developerId,
               startSprint: parseFloat(t.startSprint),
