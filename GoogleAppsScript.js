@@ -20,7 +20,7 @@ const DEVELOPERS_SHEET_NAME = 'Developers';
 /**
  * Handle GET requests - Read data from sheets
  */
-function doGet(e) {
+function doGet(e)
   try {
     const action = e.parameter.action;
 

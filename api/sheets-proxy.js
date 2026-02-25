@@ -1,86 +1,136 @@
-/**
- * Vercel Serverless Function - Proxy for Google Apps Script
- * This avoids CORS issues by making server-side requests
- */
+import { google } from 'googleapis';
+
+const TASKS_SHEET = 'Tasks';
+const DEVELOPERS_SHEET = 'Developers';
+
+async function getAuthClient() {
+  const privateKey = (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n');
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+
+  if (!clientEmail || !privateKey) {
+    throw new Error('Missing GOOGLE_SERVICE_ACCOUNT_EMAIL or GOOGLE_PRIVATE_KEY environment variables');
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: clientEmail,
+      private_key: privateKey,
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  return auth;
+}
 
 export default async function handler(req, res) {
-  // Enable CORS for your frontend
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  // Handle preflight request
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
-    // Get the Google Apps Script URL from environment variable or request
-    const SHEETS_URL = process.env.GOOGLE_SHEETS_URL ||
-                       (req.query && req.query.sheetsUrl) ||
-                       (req.body && req.body.sheetsUrl);
+    const sheetId = process.env.GOOGLE_SHEET_ID ||
+                    (req.query && req.query.sheetId) ||
+                    (req.body && req.body.sheetId);
 
-    if (!SHEETS_URL) {
+    if (!sheetId) {
       return res.status(400).json({
         success: false,
-        error: 'Google Sheets URL not configured'
+        error: 'Sheet ID not configured. Set GOOGLE_SHEET_ID in Vercel environment variables or pass sheetId parameter.'
       });
     }
 
-    // Handle GET requests (Pull)
+    const auth = await getAuthClient();
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    // ── GET: Pull data from sheet ─────────────────────────────────────────────
     if (req.method === 'GET') {
-      const action = req.query.action || 'getAll';
-      const url = `${SHEETS_URL}?action=${action}`;
+      // Fetch Tasks and Developers sheets in parallel
+      const [tasksRes, devsRes] = await Promise.all([
+        sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${TASKS_SHEET}!A:G` }),
+        sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: `${DEVELOPERS_SHEET}!A:E` }),
+      ]);
 
-      console.log('Fetching from URL:', url);
+      const tasksRows = tasksRes.data.values || [];
+      const tasks = [];
+      for (let i = 1; i < tasksRows.length; i++) {
+        const row = tasksRows[i];
+        if (row[0]) {
+          tasks.push({
+            id: row[6] || `task-${Date.now()}-${i}`,
+            title: row[0],
+            developer: row[1],
+            quarter: row[2],
+            startSprint: parseFloat(row[3]),
+            duration: parseFloat(row[4]),
+            color: row[5] || '#3B82F6',
+          });
+        }
+      }
 
-      const response = await fetch(url, {
-        method: 'GET',
-        redirect: 'follow'
-      });
+      const devsRows = devsRes.data.values || [];
+      const developers = [];
+      for (let i = 1; i < devsRows.length; i++) {
+        const row = devsRows[i];
+        if (row[0]) {
+          developers.push({
+            id: row[4] || `dev-${Date.now()}-${i}`,
+            name: row[0],
+            quarter: row[1],
+            startDate: row[2] || null,
+            endDate: row[3] || null,
+          });
+        }
+      }
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      return res.status(200).json({ success: true, tasks, developers });
+    }
 
-      const text = await response.text();
-      console.log('Response body (first 200 chars):', text.substring(0, 200));
+    // ── POST: Push data to sheet ──────────────────────────────────────────────
+    if (req.method === 'POST') {
+      const body = req.body;
+      const action = (body.data ? body.data.action : body.action) || 'syncAll';
+      const tasks = body.data ? body.data.tasks : body.tasks;
+      const developers = body.data ? body.data.developers : body.developers;
 
-      try {
-        const data = JSON.parse(text);
-        return res.status(200).json(data);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError.message);
-        return res.status(500).json({
-          success: false,
-          error: `Invalid response from Google Sheets: ${text.substring(0, 100)}...`,
-          details: 'The Google Apps Script returned HTML instead of JSON. Please verify your Web App URL and deployment settings.'
+      if (action === 'syncAll' || action === 'updateTasks') {
+        await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${TASKS_SHEET}!A:Z` });
+        const taskValues = [
+          ['Task', 'Developer', 'Quarter', 'Start Sprint', 'Duration', 'Color', 'ID'],
+          ...(tasks || []).map(t => [t.title, t.developer, t.quarter || '', t.startSprint, t.duration, t.color, t.id]),
+        ];
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: sheetId,
+          range: `${TASKS_SHEET}!A1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: taskValues },
         });
       }
+
+      if (action === 'syncAll' || action === 'updateDevelopers') {
+        await sheets.spreadsheets.values.clear({ spreadsheetId: sheetId, range: `${DEVELOPERS_SHEET}!A:Z` });
+        const devValues = [
+          ['Name', 'Quarter', 'Start Date', 'End Date', 'ID'],
+          ...(developers || []).map(d => [d.name, d.quarter || '', d.startDate || '', d.endDate || '', d.id]),
+        ];
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: sheetId,
+          range: `${DEVELOPERS_SHEET}!A1`,
+          valueInputOption: 'RAW',
+          requestBody: { values: devValues },
+        });
+      }
+
+      return res.status(200).json({ success: true });
     }
 
-    // Handle POST requests (Push)
-    if (req.method === 'POST') {
-      const response = await fetch(SHEETS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req.body.data || req.body),
-        redirect: 'follow'
-      });
-
-      const data = await response.json();
-      return res.status(200).json(data);
-    }
-
-    return res.status(405).json({
-      success: false,
-      error: 'Method not allowed'
-    });
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
 
   } catch (error) {
     console.error('Proxy error:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message
-    });
+    return res.status(500).json({ success: false, error: error.message });
   }
 }
