@@ -42,7 +42,10 @@ const SprintTimeline = () => {
             <RcDateLines rcDates={state.rcDates} />
             {activeDevelopers.map((developer) => {
               const developerTasks = state.tasks.filter(
-                task => task.developerId === developer.id
+                task =>
+                  task.developerId === developer.id &&
+                  task.startSprint >= quarterConfig.firstSprint &&
+                  task.startSprint <= quarterConfig.lastSprint
               );
 
               return (
