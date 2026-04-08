@@ -13,6 +13,7 @@ export const ACTIONS = {
   DELETE_TASK: 'DELETE_TASK',
   ADD_RC_DATE: 'ADD_RC_DATE',
   REMOVE_RC_DATE: 'REMOVE_RC_DATE',
+  UPDATE_RC_DATE: 'UPDATE_RC_DATE',
   SET_QUARTER: 'SET_QUARTER',
   LOAD_STATE: 'LOAD_STATE',
 };
@@ -80,6 +81,14 @@ const appReducer = (state, action) => {
       return {
         ...state,
         rcDates: state.rcDates.filter(rc => rc.id !== action.payload),
+      };
+
+    case ACTIONS.UPDATE_RC_DATE:
+      return {
+        ...state,
+        rcDates: state.rcDates.map(rc =>
+          rc.id === action.payload.id ? { ...rc, ...action.payload.updates } : rc
+        ),
       };
 
     case ACTIONS.SET_QUARTER:
@@ -155,6 +164,10 @@ export const AppProvider = ({ children }) => {
     dispatch({ type: ACTIONS.REMOVE_RC_DATE, payload: rcDateId });
   };
 
+  const updateRcDate = (rcDateId, updates) => {
+    dispatch({ type: ACTIONS.UPDATE_RC_DATE, payload: { id: rcDateId, updates } });
+  };
+
   const setQuarter = (quarter) => {
     dispatch({ type: ACTIONS.SET_QUARTER, payload: quarter });
   };
@@ -169,6 +182,7 @@ export const AppProvider = ({ children }) => {
     deleteTask,
     addRcDate,
     removeRcDate,
+    updateRcDate,
     setQuarter,
   };
 

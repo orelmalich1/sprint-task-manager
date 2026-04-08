@@ -3,7 +3,7 @@ import { useQuarterSprints } from '../hooks/useQuarterSprints';
 import { useApp } from '../context/AppContext';
 
 const RcDateLines = ({ rcDates }) => {
-  const { state } = useApp();
+  const { state, updateRcDate } = useApp();
   const { Q_START_DATE, SPRINT_WIDTH_PX, SPRINT_DURATION_DAYS, FIRST_SPRINT } = useQuarterSprints();
   const [selectedRc, setSelectedRc] = useState(null);
 
@@ -23,11 +23,17 @@ const RcDateLines = ({ rcDates }) => {
 
   const getTasksForRc = (rc) => {
     const rcSprintPosition = calculateSprintPosition(rc.date);
+    const excluded = rc.excludedTaskIds || [];
 
     return state.tasks.filter(task => {
       const taskEnd = task.startSprint + task.duration;
-      return taskEnd <= rcSprintPosition;
+      return taskEnd <= rcSprintPosition && !excluded.includes(task.id);
     });
+  };
+
+  const removeTaskFromRc = (rc, taskId) => {
+    const excluded = rc.excludedTaskIds || [];
+    updateRcDate(rc.id, { excludedTaskIds: [...excluded, taskId] });
   };
 
   const handleRcClick = (rc) => {
@@ -96,6 +102,13 @@ const RcDateLines = ({ rcDates }) => {
                         ({task.duration} sprint{task.duration !== 1 ? 's' : ''})
                       </div>
                     </div>
+                    <button
+                      onClick={() => removeTaskFromRc(selectedRc, task.id)}
+                      title="Remove from this RC"
+                      style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '16px', padding: '0 4px' }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))
               )}
