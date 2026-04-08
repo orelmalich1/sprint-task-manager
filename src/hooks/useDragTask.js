@@ -1,22 +1,17 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQuarterSprints } from './useQuarterSprints';
 
-/**
- * Custom hook for dragging tasks between sprints and developers
- * @param {object} task - Task object
- * @param {function} onUpdate - Callback when task is updated
- * @param {array} developers - Array of all developers
- * @returns {object} Event handlers and state
- */
+const DRAG_THRESHOLD_PX = 5;
+
 export const useDragTask = (task, onUpdate, developers) => {
   const { snapToHalfSprint, clampSprintPosition, SPRINT_WIDTH_PX, SPRINTS } = useQuarterSprints();
   const [isDragging, setIsDragging] = useState(false);
+  const [isMouseDown, setIsMouseDown] = useState(false);
   const dragStartRef = useRef(null);
   const taskElementRef = useRef(null);
+  const hasMovedRef = useRef(false);
 
-  // Handle mouse down on task bar (not on resize handles)
   const handleMouseDown = useCallback((event, taskElement) => {
-    // Don't start drag if clicking on resize handles or buttons
     if (event.target.classList.contains('resize-handle') ||
         event.target.classList.contains('task-delete') ||
         event.target.tagName === 'INPUT') {
@@ -33,98 +28,86 @@ export const useDragTask = (task, onUpdate, developers) => {
       developerId: task.developerId,
     };
 
+    hasMovedRef.current = false;
     taskElementRef.current = taskElement;
-    setIsDragging(true);
+    setIsMouseDown(true);
   }, [task]);
 
-  // Handle mouse move during drag
   const handleMouseMove = useCallback((event) => {
-    if (!isDragging || !dragStartRef.current || !taskElementRef.current) return;
+    if (!dragStartRef.current) return;
 
-    // We could add visual feedback here in the future
-    // For now, we just track the movement and update on mouse up
-  }, [isDragging]);
+    const deltaX = Math.abs(event.clientX - dragStartRef.current.clientX);
+    const deltaY = Math.abs(event.clientY - dragStartRef.current.clientY);
 
-  // Handle mouse up - commit changes
-  const handleMouseUp = useCallback((event) => {
-    if (!isDragging || !dragStartRef.current || !taskElementRef.current) return;
-
-    // Calculate final position
-    const deltaX = event.clientX - dragStartRef.current.clientX;
-    const deltaSprints = deltaX / SPRINT_WIDTH_PX;
-    const newStartSprint = dragStartRef.current.startSprint + deltaSprints;
-    const snappedSprint = snapToHalfSprint(newStartSprint);
-    const clampedSprint = clampSprintPosition(snappedSprint);
-
-    // Find target developer
-    const timelineElement = taskElementRef.current.closest('.timeline');
-    let targetDeveloperId = dragStartRef.current.developerId;
-
-    if (timelineElement) {
-      const developerRows = timelineElement.querySelectorAll('.developer-row');
-      developerRows.forEach((row, index) => {
-        const rect = row.getBoundingClientRect();
-        if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
-          if (developers[index]) {
-            targetDeveloperId = developers[index].id;
-          }
-        }
-      });
+    if (!hasMovedRef.current && (deltaX > DRAG_THRESHOLD_PX || deltaY > DRAG_THRESHOLD_PX)) {
+      hasMovedRef.current = true;
+      setIsDragging(true);
     }
+  }, []);
 
-    // Validate that the target developer is available for the task period
-    if (targetDeveloperId !== dragStartRef.current.developerId) {
-      const targetDeveloper = developers.find(d => d.id === targetDeveloperId);
-      if (targetDeveloper && targetDeveloper.endDate) {
-        const taskStartSprint = clampedSprint;
-        const taskEndSprint = taskStartSprint + task.duration;
+  const handleMouseUp = useCallback((event) => {
+    if (!dragStartRef.current) return;
 
-        const startSprintData = SPRINTS.find(s => s.number === Math.floor(taskStartSprint));
-        const endSprintData = SPRINTS.find(s => s.number === Math.floor(taskEndSprint));
+    if (hasMovedRef.current && taskElementRef.current) {
+      const deltaX = event.clientX - dragStartRef.current.clientX;
+      const newStartSprint = dragStartRef.current.startSprint + deltaX / SPRINT_WIDTH_PX;
+      const clampedSprint = clampSprintPosition(snapToHalfSprint(newStartSprint));
 
-        if (startSprintData && endSprintData) {
-          const devEndDate = new Date(targetDeveloper.endDate);
-          const taskStartDate = startSprintData.start;
+      const timelineElement = taskElementRef.current.closest('.timeline');
+      let targetDeveloperId = dragStartRef.current.developerId;
 
-          if (devEndDate < taskStartDate) {
-            alert(`Cannot assign task to ${targetDeveloper.name}. This developer left on ${devEndDate.toLocaleDateString()} which is before the task starts.`);
-            setIsDragging(false);
-            dragStartRef.current = null;
-            taskElementRef.current = null;
-            return;
+      if (timelineElement) {
+        const developerRows = timelineElement.querySelectorAll('.developer-row');
+        developerRows.forEach((row, index) => {
+          const rect = row.getBoundingClientRect();
+          if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+            if (developers[index]) {
+              targetDeveloperId = developers[index].id;
+            }
+          }
+        });
+      }
+
+      if (targetDeveloperId !== dragStartRef.current.developerId) {
+        const targetDeveloper = developers.find(d => d.id === targetDeveloperId);
+        if (targetDeveloper && targetDeveloper.endDate) {
+          const startSprintData = SPRINTS.find(s => s.number === Math.floor(clampedSprint));
+          if (startSprintData) {
+            const devEndDate = new Date(targetDeveloper.endDate);
+            if (devEndDate < startSprintData.start) {
+              alert(`Cannot assign task to ${targetDeveloper.name}. This developer left on ${devEndDate.toLocaleDateString()} which is before the task starts.`);
+              setIsDragging(false);
+              setIsMouseDown(false);
+              dragStartRef.current = null;
+              taskElementRef.current = null;
+              hasMovedRef.current = false;
+              return;
+            }
           }
         }
       }
-    }
 
-    // Only update if something changed
-    if (clampedSprint !== task.startSprint || targetDeveloperId !== task.developerId) {
-      onUpdate(task.id, {
-        startSprint: clampedSprint,
-        developerId: targetDeveloperId,
-      });
+      if (clampedSprint !== task.startSprint || targetDeveloperId !== task.developerId) {
+        onUpdate(task.id, { startSprint: clampedSprint, developerId: targetDeveloperId });
+      }
     }
 
     setIsDragging(false);
+    setIsMouseDown(false);
     dragStartRef.current = null;
     taskElementRef.current = null;
-  }, [isDragging, task, developers, onUpdate, SPRINT_WIDTH_PX, snapToHalfSprint, clampSprintPosition, SPRINTS]);
+    hasMovedRef.current = false;
+  }, [task, developers, onUpdate, SPRINT_WIDTH_PX, snapToHalfSprint, clampSprintPosition, SPRINTS]);
 
-  // Add global event listeners
   useEffect(() => {
-    if (isDragging) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+    if (!isMouseDown) return;
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isMouseDown, handleMouseMove, handleMouseUp]);
 
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
-    }
-  }, [isDragging, handleMouseMove, handleMouseUp]);
-
-  return {
-    isDragging,
-    handleMouseDown,
-  };
+  return { isDragging, handleMouseDown };
 };
