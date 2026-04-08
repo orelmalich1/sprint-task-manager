@@ -25,9 +25,8 @@ const RcDateLines = ({ rcDates }) => {
     const rcSprintPosition = calculateSprintPosition(rc.date);
 
     return state.tasks.filter(task => {
-      const taskStart = task.startSprint;
       const taskEnd = task.startSprint + task.duration;
-      return rcSprintPosition >= taskStart && rcSprintPosition < taskEnd;
+      return taskEnd <= rcSprintPosition;
     });
   };
 
@@ -68,7 +67,7 @@ const RcDateLines = ({ rcDates }) => {
       {selectedRc && (
         <div className="modal-overlay" onClick={handleCloseModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Tasks for {selectedRc.label}</h2>
+            <h2>Completed by {selectedRc.label}</h2>
             <p style={{ color: '#6b7280', marginBottom: '20px', fontSize: '14px' }}>
               {new Date(selectedRc.date).toLocaleDateString('en-US', {
                 month: 'long',
@@ -80,7 +79,7 @@ const RcDateLines = ({ rcDates }) => {
             <div className="rc-tasks-list">
               {getTasksForRc(selectedRc).length === 0 ? (
                 <p style={{ color: '#9ca3af', textAlign: 'center', padding: '20px' }}>
-                  No tasks scheduled during this RC date
+                  No tasks completed before this RC date
                 </p>
               ) : (
                 getTasksForRc(selectedRc).map(task => (
