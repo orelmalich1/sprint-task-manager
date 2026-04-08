@@ -11,11 +11,12 @@ const InitiativesTimeline = () => {
   const { SPRINTS, SPRINT_WIDTH_PX, sprintToPixels } = useQuarterSprints();
   const quarterConfig = getQuarterConfig(state.currentQuarter);
 
-  // Collect tasks in this quarter
+  // Collect tasks in this quarter, excluding "Slate Blue" (#475569) tasks
   const quarterTasks = state.tasks.filter(
     task =>
       task.startSprint >= quarterConfig.firstSprint &&
-      task.startSprint <= quarterConfig.lastSprint
+      task.startSprint <= quarterConfig.lastSprint &&
+      task.color !== '#475569'
   );
 
   // Group by title — compute full span across all devs
