@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, PODS } from '../context/AppContext';
 
 const GitHubSync = () => {
-  const { state, addDeveloper, addTask, removeDeveloper, deleteTask } = useApp();
+  const { state, pods, loadAllPods } = useApp();
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(null);
   const [syncStatus, setSyncStatus] = useState('');
@@ -16,6 +16,12 @@ const GitHubSync = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoSync]);
+
+  // Reset sync status when switching pods
+  useEffect(() => {
+    setSyncStatus('');
+    setLastSync(null);
+  }, [state.currentPod]);
 
   const convertTasksForStorage = (tasks, developers) =>
     tasks.map(task => {
@@ -42,13 +48,21 @@ const GitHubSync = () => {
     setIsSyncing(true);
     setSyncStatus('Pushing to GitHub...');
     try {
+      // Serialize all pods
+      const serializedPods = {};
+      PODS.forEach(({ id }) => {
+        const podData = pods[id] || { developers: [], tasks: [], rcDates: [] };
+        serializedPods[id] = {
+          developers: convertDevelopersForStorage(podData.developers),
+          tasks: convertTasksForStorage(podData.tasks, podData.developers),
+          rcDates: podData.rcDates || [],
+        };
+      });
+
       const response = await fetch('/api/sheets-proxy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tasks: convertTasksForStorage(state.tasks, state.developers),
-          developers: convertDevelopersForStorage(state.developers),
-        }),
+        body: JSON.stringify({ pods: serializedPods }),
       });
 
       const result = await response.json();
@@ -72,11 +86,14 @@ const GitHubSync = () => {
   };
 
   const syncFromGist = async (showStatus = true) => {
-    if (showStatus && state.tasks.length > 0) {
-      const confirmed = window.confirm(
-        `⚠️ Pull will replace ALL current data (${state.tasks.length} tasks, ${state.developers.length} developers) with data from GitHub.\n\nMake sure you've Pushed first so nothing is lost.\n\nContinue?`
-      );
-      if (!confirmed) return;
+    if (showStatus) {
+      const totalTasks = Object.values(pods).reduce((sum, p) => sum + (p.tasks?.length || 0), 0);
+      if (totalTasks > 0) {
+        const confirmed = window.confirm(
+          `⚠️ Pull will replace ALL data across all PODs with data from GitHub.\n\nMake sure you've Pushed first so nothing is lost.\n\nContinue?`
+        );
+        if (!confirmed) return;
+      }
     }
     setIsSyncing(true);
     if (showStatus) setSyncStatus('Pulling from GitHub...');
@@ -91,51 +108,81 @@ const GitHubSync = () => {
       const result = await response.json();
 
       if (result.success) {
-        state.developers.forEach(dev => removeDeveloper(dev.id));
-        state.tasks.forEach(task => deleteTask(task.id));
+        if (result.pods) {
+          // New multi-pod format
+          const rebuiltPods = {};
+          PODS.forEach(({ id }) => {
+            const podData = result.pods[id];
+            if (!podData) {
+              rebuiltPods[id] = { developers: [], tasks: [], rcDates: [] };
+              return;
+            }
 
-        const developerMap = {};
+            const developerMap = {};
+            const developers = (podData.developers || []).map(d => {
+              const dev = {
+                id: d.id || `dev-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+                name: (d.name || '').trim(),
+                startDate: d.startDate || null,
+                endDate: d.endDate || null,
+              };
+              developerMap[dev.name] = dev.id;
+              return dev;
+            }).filter(d => d.name);
 
-        (result.developers || []).forEach(sheetDev => {
-          const name = (sheetDev.name || '').trim();
-          if (name) {
-            const dev = {
-              id: sheetDev.id || `dev-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-              name,
-              startDate: sheetDev.startDate || null,
-              endDate: sheetDev.endDate || null,
+            const tasks = (podData.tasks || []).map(t => {
+              const developerId = developerMap[(t.developer || '').trim()];
+              if (!developerId) return null;
+              return {
+                id: t.id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+                title: (t.title || '').trim(),
+                developerId,
+                startSprint: parseFloat(t.startSprint),
+                duration: parseFloat(t.duration),
+                color: t.color || '#3B82F6',
+              };
+            }).filter(Boolean);
+
+            rebuiltPods[id] = {
+              developers,
+              tasks,
+              rcDates: podData.rcDates || [],
             };
-            addDeveloper(dev);
-            developerMap[name] = dev.id;
-          }
-        });
-
-        if (Object.keys(developerMap).length === 0 && result.tasks?.length > 0) {
-          [...new Set(result.tasks.map(t => (t.developer || '').trim()).filter(Boolean))].forEach(name => {
-            const dev = {
-              id: `dev-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-              name,
-              startDate: null,
-              endDate: null,
-            };
-            addDeveloper(dev);
-            developerMap[name] = dev.id;
           });
-        }
 
-        (result.tasks || []).forEach(t => {
-          const developerId = developerMap[(t.developer || '').trim()];
-          if (developerId) {
-            addTask({
+          loadAllPods(rebuiltPods);
+        } else {
+          // Old single-pod format — load into current pod only
+          const developerMap = {};
+          const developers = (result.developers || []).map(d => {
+            const dev = {
+              id: d.id || `dev-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+              name: (d.name || '').trim(),
+              startDate: d.startDate || null,
+              endDate: d.endDate || null,
+            };
+            developerMap[dev.name] = dev.id;
+            return dev;
+          }).filter(d => d.name);
+
+          const tasks = (result.tasks || []).map(t => {
+            const developerId = developerMap[(t.developer || '').trim()];
+            if (!developerId) return null;
+            return {
               id: t.id || `task-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
               title: (t.title || '').trim(),
               developerId,
               startSprint: parseFloat(t.startSprint),
               duration: parseFloat(t.duration),
               color: t.color || '#3B82F6',
-            });
-          }
-        });
+            };
+          }).filter(Boolean);
+
+          const rebuiltPods = {};
+          PODS.forEach(({ id }) => { rebuiltPods[id] = { developers: [], tasks: [], rcDates: [] }; });
+          rebuiltPods['nanit-home'] = { developers, tasks, rcDates: [] };
+          loadAllPods(rebuiltPods);
+        }
 
         setLastSync(new Date());
         if (showStatus) {
@@ -215,13 +262,8 @@ const GitHubSync = () => {
                 <li>Click <strong>Generate token</strong> and copy it</li>
               </ol>
 
-              <p style={{ fontWeight: 600, marginBottom: '6px' }}>First-time setup:</p>
-              <ol style={{ paddingLeft: '20px' }}>
-                <li>Add only <strong>GITHUB_TOKEN</strong> to Vercel and redeploy</li>
-                <li>Click <strong>⬆️ Push</strong> — a Gist will be created automatically</li>
-                <li>Copy the <strong>GITHUB_GIST_ID</strong> shown in the status message</li>
-                <li>Add it to Vercel env vars and redeploy once more</li>
-              </ol>
+              <p style={{ fontWeight: 600, marginBottom: '6px' }}>Note:</p>
+              <p>Push/Pull syncs <strong>all PODs</strong> at once.</p>
             </div>
 
             <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
