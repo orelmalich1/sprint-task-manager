@@ -71,8 +71,9 @@ export default async function handler(req, res) {
 
     // ── POST: Push data ───────────────────────────────────────────────────────
     if (req.method === 'POST') {
-      const { tasks, developers } = req.body;
-      const content = JSON.stringify({ tasks: tasks || [], developers: developers || [] }, null, 2);
+      const { pods, tasks, developers } = req.body;
+      const payload = pods ? { pods } : { tasks: tasks || [], developers: developers || [] };
+      const content = JSON.stringify(payload, null, 2);
 
       if (!gistId) {
         // First push — create a new private Gist automatically
