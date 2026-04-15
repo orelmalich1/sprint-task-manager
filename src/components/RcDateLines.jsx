@@ -26,9 +26,15 @@ const RcDateLines = ({ rcDates }) => {
     const rcSprintPosition = calculateSprintPosition(rc.date);
     const excluded = rc.excludedTaskIds || [];
 
+    // Find the previous RC (sorted by date) to avoid showing tasks already in an earlier RC
+    const sortedRcs = [...rcDates].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const rcIndex = sortedRcs.findIndex(r => r.id === rc.id);
+    const prevRc = rcIndex > 0 ? sortedRcs[rcIndex - 1] : null;
+    const prevSprintPosition = prevRc ? calculateSprintPosition(prevRc.date) : -Infinity;
+
     return state.tasks.filter(task => {
       const taskEnd = task.startSprint + task.duration;
-      return taskEnd <= rcSprintPosition && !excluded.includes(task.id);
+      return taskEnd <= rcSprintPosition && taskEnd > prevSprintPosition && !excluded.includes(task.id);
     });
   };
 
