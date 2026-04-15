@@ -57,6 +57,11 @@ export default async function handler(req, res) {
       }
 
       const data = JSON.parse(file.content);
+      // Multi-pod format
+      if (data.pods) {
+        return res.status(200).json({ success: true, pods: data.pods });
+      }
+      // Legacy single-pod format
       return res.status(200).json({
         success: true,
         tasks: data.tasks || [],
