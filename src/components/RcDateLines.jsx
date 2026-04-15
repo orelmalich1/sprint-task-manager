@@ -5,7 +5,8 @@ import { useApp } from '../context/AppContext';
 const RcDateLines = ({ rcDates }) => {
   const { state, updateRcDate } = useApp();
   const { Q_START_DATE, SPRINT_WIDTH_PX, SPRINT_DURATION_DAYS, FIRST_SPRINT } = useQuarterSprints();
-  const [selectedRc, setSelectedRc] = useState(null);
+  const [selectedRcId, setSelectedRcId] = useState(null);
+  const selectedRc = rcDates.find(rc => rc.id === selectedRcId) || null;
 
   const calculatePosition = (dateString) => {
     const rcDate = new Date(dateString);
@@ -37,11 +38,11 @@ const RcDateLines = ({ rcDates }) => {
   };
 
   const handleRcClick = (rc) => {
-    setSelectedRc(rc);
+    setSelectedRcId(rc.id);
   };
 
   const handleCloseModal = () => {
-    setSelectedRc(null);
+    setSelectedRcId(null);
   };
 
   const getDeveloperName = (developerId) => {
