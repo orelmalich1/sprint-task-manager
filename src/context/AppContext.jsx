@@ -9,6 +9,8 @@ export const PODS = [
   { id: 'platform',    label: 'Platform POD' },
   { id: 'be',          label: 'BE POD' },
   { id: 'gen3',        label: 'Gen 3 POD' },
+  { id: 'R&DOps',        label: 'R&D Ops' },
+
 ];
 
 export const ACTIONS = {
