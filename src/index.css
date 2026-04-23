@@ -482,6 +482,66 @@ body {
   padding: 12px 0;
 }
 
+/* OoO Bar */
+.ooo-bar {
+  position: absolute;
+  top: 16px;
+  height: 48px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(251, 191, 36, 0.35),
+    rgba(251, 191, 36, 0.35) 5px,
+    rgba(254, 243, 199, 0.5) 5px,
+    rgba(254, 243, 199, 0.5) 14px
+  );
+  border: 2px dashed rgba(217, 119, 6, 0.7);
+  transition: opacity 0.15s, border-color 0.15s;
+  z-index: 5;
+}
+
+.ooo-bar:hover {
+  opacity: 0.75;
+  border-color: rgba(180, 83, 9, 0.9);
+}
+
+.ooo-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(120, 53, 15, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+/* OoO add button (in developer-name column) */
+.ooo-add-btn {
+  opacity: 0;
+  color: white;
+  background: rgba(217, 119, 6, 0.7);
+  border: none;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  margin-right: 4px;
+  font-size: 13px;
+}
+
+.developer-name:hover .ooo-add-btn {
+  opacity: 1;
+}
+
+.ooo-add-btn:hover {
+  background: #d97706;
+  transform: scale(1.15);
+}
+
 /* Task Bar */
 .task-bar {
   position: absolute;

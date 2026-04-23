@@ -48,11 +48,19 @@ const SprintTimeline = () => {
                   task.startSprint <= quarterConfig.lastSprint
               );
 
+              const developerOoo = (state.ooo || []).filter(
+                o =>
+                  o.developerId === developer.id &&
+                  o.startSprint + o.duration > quarterConfig.firstSprint &&
+                  o.startSprint <= quarterConfig.lastSprint
+              );
+
               return (
                 <DeveloperRow
                   key={developer.id}
                   developer={developer}
                   tasks={developerTasks}
+                  ooo={developerOoo}
                 />
               );
             })}

@@ -9,8 +9,7 @@ export const PODS = [
   { id: 'platform',    label: 'Platform POD' },
   { id: 'be',          label: 'BE POD' },
   { id: 'gen3',        label: 'Gen 3 POD' },
-  { id: 'R&DOps',        label: 'R&D Ops' },
-
+  { id: 'R&DOps',      label: 'R&D Ops' },
 ];
 
 export const ACTIONS = {
@@ -23,12 +22,14 @@ export const ACTIONS = {
   ADD_RC_DATE:    'ADD_RC_DATE',
   REMOVE_RC_DATE: 'REMOVE_RC_DATE',
   UPDATE_RC_DATE: 'UPDATE_RC_DATE',
+  ADD_OOO:        'ADD_OOO',
+  REMOVE_OOO:     'REMOVE_OOO',
   SET_QUARTER:    'SET_QUARTER',
   SET_POD:        'SET_POD',
   LOAD_STATE:     'LOAD_STATE',
 };
 
-const emptyPod = () => ({ developers: [], tasks: [], rcDates: [] });
+const emptyPod = () => ({ developers: [], tasks: [], rcDates: [], ooo: [] });
 
 const initialState = {
   currentPod: 'nanit-home',
@@ -53,6 +54,7 @@ const appReducer = (state, action) => {
       return updatePod({
         developers: podData.developers.filter(dev => dev.id !== action.payload),
         tasks: podData.tasks.filter(task => task.developerId !== action.payload),
+        ooo: (podData.ooo || []).filter(o => o.developerId !== action.payload),
       });
 
     case ACTIONS.UPDATE_DEVELOPER:
@@ -88,6 +90,12 @@ const appReducer = (state, action) => {
         ),
       });
 
+    case ACTIONS.ADD_OOO:
+      return updatePod({ ooo: [...(podData.ooo || []), action.payload] });
+
+    case ACTIONS.REMOVE_OOO:
+      return updatePod({ ooo: (podData.ooo || []).filter(o => o.id !== action.payload) });
+
     case ACTIONS.SET_QUARTER:
       return { ...state, currentQuarter: action.payload };
 
@@ -112,9 +120,11 @@ export const AppProvider = ({ children }) => {
       try {
         const parsed = JSON.parse(savedState);
         if (parsed.pods) {
-          // New multi-pod format — ensure all pods exist
+          // New multi-pod format — ensure all pods exist and have ooo array
           const pods = { ...initialState.pods };
-          Object.keys(parsed.pods).forEach(id => { pods[id] = parsed.pods[id]; });
+          Object.keys(parsed.pods).forEach(id => {
+            pods[id] = { ooo: [], ...parsed.pods[id] };
+          });
           dispatch({ type: ACTIONS.LOAD_STATE, payload: { ...parsed, pods } });
         } else {
           // Old flat format — migrate into nanit-home pod
@@ -123,6 +133,7 @@ export const AppProvider = ({ children }) => {
             developers: parsed.developers || [],
             tasks: parsed.tasks || [],
             rcDates: parsed.rcDates || [],
+            ooo: [],
           };
           dispatch({
             type: ACTIONS.LOAD_STATE,
@@ -156,13 +167,15 @@ export const AppProvider = ({ children }) => {
   const addRcDate       = (rc)             => dispatch({ type: ACTIONS.ADD_RC_DATE,       payload: rc });
   const removeRcDate    = (id)             => dispatch({ type: ACTIONS.REMOVE_RC_DATE,    payload: id });
   const updateRcDate    = (id, updates)    => dispatch({ type: ACTIONS.UPDATE_RC_DATE,    payload: { id, updates } });
+  const addOoo          = (ooo)            => dispatch({ type: ACTIONS.ADD_OOO,           payload: ooo });
+  const removeOoo       = (id)             => dispatch({ type: ACTIONS.REMOVE_OOO,        payload: id });
   const setQuarter      = (quarter)        => dispatch({ type: ACTIONS.SET_QUARTER,       payload: quarter });
   const setPod          = (podId)          => dispatch({ type: ACTIONS.SET_POD,           payload: podId });
 
   // Load all pods at once (used by sync)
   const loadAllPods = (pods) => {
     const merged = { ...initialState.pods };
-    Object.keys(pods).forEach(id => { merged[id] = pods[id]; });
+    Object.keys(pods).forEach(id => { merged[id] = { ooo: [], ...pods[id] }; });
     dispatch({ type: ACTIONS.LOAD_STATE, payload: { ...state, pods: merged } });
   };
 
@@ -171,6 +184,7 @@ export const AppProvider = ({ children }) => {
       developers:    currentPodData.developers,
       tasks:         currentPodData.tasks,
       rcDates:       currentPodData.rcDates,
+      ooo:           currentPodData.ooo || [],
       currentQuarter: state.currentQuarter,
       currentPod:    state.currentPod,
     },
@@ -178,6 +192,7 @@ export const AppProvider = ({ children }) => {
     addDeveloper, removeDeveloper, updateDeveloper,
     addTask, updateTask, deleteTask,
     addRcDate, removeRcDate, updateRcDate,
+    addOoo, removeOoo,
     setQuarter, setPod, loadAllPods,
   };
 
