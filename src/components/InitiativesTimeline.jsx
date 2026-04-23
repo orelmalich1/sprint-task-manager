@@ -6,6 +6,31 @@ import TodayIndicator from './TodayIndicator';
 import { useQuarterSprints } from '../hooks/useQuarterSprints';
 import { getQuarterConfig } from '../utils/quarterConfig';
 
+const INITIATIVE_COLORS = [
+  '#EF4444', // Red
+  '#F97316', // Orange
+  '#F59E0B', // Amber
+  '#84CC16', // Lime
+  '#22C55E', // Green
+  '#14B8A6', // Teal
+  '#06B6D4', // Cyan
+  '#0EA5E9', // Sky
+  '#3B82F6', // Blue
+  '#6366F1', // Indigo
+  '#8B5CF6', // Violet
+  '#A855F7', // Purple
+  '#EC4899', // Pink
+  '#F43F5E', // Rose
+];
+
+const hashTitle = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) & 0xffffffff;
+  }
+  return Math.abs(hash);
+};
+
 const InitiativesTimeline = () => {
   const { state } = useApp();
   const { SPRINTS, SPRINT_WIDTH_PX, sprintToPixels } = useQuarterSprints();
@@ -27,7 +52,7 @@ const InitiativesTimeline = () => {
     if (!initiativeMap[title]) {
       initiativeMap[title] = {
         title,
-        color: task.color || '#3B82F6',
+        color: INITIATIVE_COLORS[hashTitle(title) % INITIATIVE_COLORS.length],
         startSprint: task.startSprint,
         endSprint: taskEnd,
       };
