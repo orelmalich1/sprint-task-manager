@@ -3,6 +3,21 @@ import { useApp } from '../context/AppContext';
 import { useQuarterSprints } from '../hooks/useQuarterSprints';
 import { getQuarterConfig } from '../utils/quarterConfig';
 
+// Same palette and hash as InitiativesTimeline
+const INITIATIVE_COLORS = [
+  '#EF4444', '#F97316', '#F59E0B', '#84CC16', '#22C55E',
+  '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#6366F1',
+  '#8B5CF6', '#A855F7', '#EC4899', '#F43F5E',
+];
+
+const hashTitle = (str) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) & 0xffffffff;
+  }
+  return Math.abs(hash);
+};
+
 const RcDateManager = () => {
   const { state, addRcDate, removeRcDate, updateRcDate } = useApp();
   const { SPRINTS, SPRINT_WIDTH_PX, Q_START_DATE, SPRINT_DURATION_DAYS, FIRST_SPRINT } = useQuarterSprints();
@@ -17,31 +32,60 @@ const RcDateManager = () => {
   const quarterRcDates = state.rcDates.filter(rc => rc.quarter === state.currentQuarter);
   const selectedRc = quarterRcDates.find(rc => rc.id === selectedRcId) || null;
 
-  // Convert a date string to a pixel offset within the timeline area
   const dateToPixels = (dateString) => {
     const rcDate = new Date(dateString);
     const days = (rcDate - Q_START_DATE) / (1000 * 60 * 60 * 24);
     return (days / SPRINT_DURATION_DAYS) * SPRINT_WIDTH_PX;
   };
 
-  // Convert a date string to a sprint number (for task filtering)
   const dateToSprint = (dateString) => {
     const rcDate = new Date(dateString);
     const days = (rcDate - Q_START_DATE) / (1000 * 60 * 60 * 24);
     return FIRST_SPRINT + days / SPRINT_DURATION_DAYS;
   };
 
-  const getTasksForRc = (rc) => {
+  // Build initiatives from all tasks (same logic as InitiativesTimeline, excluding #475569)
+  const buildInitiatives = () => {
+    const map = {};
+    state.tasks
+      .filter(t => t.color !== '#475569')
+      .forEach(task => {
+        const title = task.title.trim();
+        const taskEnd = task.startSprint + task.duration;
+        if (!map[title]) {
+          map[title] = {
+            title,
+            color: INITIATIVE_COLORS[hashTitle(title) % INITIATIVE_COLORS.length],
+            startSprint: task.startSprint,
+            endSprint: taskEnd,
+          };
+        } else {
+          map[title].startSprint = Math.min(map[title].startSprint, task.startSprint);
+          map[title].endSprint = Math.max(map[title].endSprint, taskEnd);
+        }
+      });
+    return Object.values(map);
+  };
+
+  // Initiatives whose full span ends within this RC's window (prevRC < endSprint <= thisRC)
+  const getInitiativesForRc = (rc) => {
     const rcSprint = dateToSprint(rc.date);
-    const excluded = rc.excludedTaskIds || [];
+    const excluded = rc.excludedInitiatives || [];
     const sortedRcs = [...quarterRcDates].sort((a, b) => new Date(a.date) - new Date(b.date));
     const rcIndex = sortedRcs.findIndex(r => r.id === rc.id);
     const prevRc = rcIndex > 0 ? sortedRcs[rcIndex - 1] : null;
     const prevSprint = prevRc ? dateToSprint(prevRc.date) : -Infinity;
 
-    return state.tasks.filter(task => {
-      const taskEnd = task.startSprint + task.duration;
-      return taskEnd <= rcSprint && taskEnd > prevSprint && !excluded.includes(task.id);
+    return buildInitiatives().filter(initiative =>
+      initiative.endSprint <= rcSprint &&
+      initiative.endSprint > prevSprint &&
+      !excluded.includes(initiative.title)
+    );
+  };
+
+  const removeInitiativeFromRc = (rc, title) => {
+    updateRcDate(rc.id, {
+      excludedInitiatives: [...(rc.excludedInitiatives || []), title],
     });
   };
 
@@ -71,15 +115,6 @@ const RcDateManager = () => {
       removeRcDate(id);
       if (selectedRcId === id) setSelectedRcId(null);
     }
-  };
-
-  const removeTaskFromRc = (rc, taskId) => {
-    updateRcDate(rc.id, { excludedTaskIds: [...(rc.excludedTaskIds || []), taskId] });
-  };
-
-  const getDeveloperName = (developerId) => {
-    const dev = state.developers.find(d => d.id === developerId);
-    return dev ? dev.name : 'Unknown';
   };
 
   return (
@@ -113,15 +148,11 @@ const RcDateManager = () => {
             {quarterRcDates.map(rc => {
               const left = dateToPixels(rc.date);
               return (
-                <div
-                  key={rc.id}
-                  className="rc-inline-marker"
-                  style={{ left: `${left}px` }}
-                >
+                <div key={rc.id} className="rc-inline-marker" style={{ left: `${left}px` }}>
                   <span
                     className="rc-inline-label"
                     onClick={() => setSelectedRcId(rc.id)}
-                    title={`${rc.label} — ${new Date(rc.date).toLocaleDateString()}\nClick to see tasks`}
+                    title={`${rc.label} — ${new Date(rc.date).toLocaleDateString()}\nClick to see initiatives`}
                   >
                     {rc.label}
                   </span>
@@ -177,7 +208,7 @@ const RcDateManager = () => {
         </div>
       )}
 
-      {/* Task list modal */}
+      {/* Initiatives modal */}
       {selectedRc && (
         <div className="modal-overlay" onClick={() => setSelectedRcId(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -187,24 +218,22 @@ const RcDateManager = () => {
             </p>
 
             <div className="rc-tasks-list">
-              {getTasksForRc(selectedRc).length === 0 ? (
+              {getInitiativesForRc(selectedRc).length === 0 ? (
                 <p style={{ color: '#9ca3af', textAlign: 'center', padding: 20 }}>
-                  No tasks completed before this RC date
+                  No initiatives completed before this RC date
                 </p>
               ) : (
-                getTasksForRc(selectedRc).map(task => (
-                  <div key={task.id} className="rc-task-item">
-                    <div className="rc-task-color" style={{ backgroundColor: task.color || '#93C5FD' }} />
+                getInitiativesForRc(selectedRc).map(initiative => (
+                  <div key={initiative.title} className="rc-task-item">
+                    <div className="rc-task-color" style={{ backgroundColor: initiative.color }} />
                     <div className="rc-task-details">
-                      <div className="rc-task-title">{task.title}</div>
+                      <div className="rc-task-title">{initiative.title}</div>
                       <div className="rc-task-meta">
-                        {getDeveloperName(task.developerId)} •
-                        Sprint {task.startSprint}–{task.startSprint + task.duration}
-                        ({task.duration} sprint{task.duration !== 1 ? 's' : ''})
+                        Sprint {initiative.startSprint}–{initiative.endSprint}
                       </div>
                     </div>
                     <button
-                      onClick={() => removeTaskFromRc(selectedRc, task.id)}
+                      onClick={() => removeInitiativeFromRc(selectedRc, initiative.title)}
                       title="Remove from this RC"
                       style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: 16, padding: '0 4px' }}
                     >
