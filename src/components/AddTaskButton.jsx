@@ -18,6 +18,8 @@ const TASK_COLORS = [
   { name: 'Green', value: '#22C55E' },
   { name: 'Dark Green', value: '#16A34A' },
   { name: 'Forest Green', value: '#15803D' },
+  { name: 'Light Gray', value: '#D1D5DB' },
+  { name: 'Light Orange', value: '#FDBA74' },
 ];
 
 const AddTaskButton = () => {
