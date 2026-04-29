@@ -23,7 +23,7 @@ const TASK_COLORS = [
 ];
 
 const AddTaskButton = () => {
-  const { state, addTask } = useApp();
+  const { state, addTask, deleteTask } = useApp();
   const { FIRST_SPRINT, LAST_SPRINT, TOTAL_SPRINTS, SPRINTS } = useQuarterSprints();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -138,18 +138,19 @@ const AddTaskButton = () => {
     const newStart = parseFloat(formData.startSprint);
     const newEnd = newStart + parseFloat(formData.duration);
 
-    const overlappingTask = state.tasks.find(t => {
+    const overlappingTasks = state.tasks.filter(t => {
       if (t.developerId !== formData.developerId) return false;
       const tEnd = t.startSprint + t.duration;
       return newStart < tEnd && newEnd > t.startSprint;
     });
 
-    if (overlappingTask) {
+    if (overlappingTasks.length > 0) {
       const devName = state.developers.find(d => d.id === formData.developerId)?.name || 'This developer';
       const confirmed = window.confirm(
-        `${devName} is already assigned a task in that time, do you want to add it anyway?`
+        `${devName} is already assigned a task in that time, do you want to overwrite it?`
       );
       if (!confirmed) return;
+      overlappingTasks.forEach(t => deleteTask(t.id));
     }
 
     const newTask = {
