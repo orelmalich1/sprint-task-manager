@@ -135,11 +135,28 @@ const AddTaskButton = () => {
       }
     }
 
+    const newStart = parseFloat(formData.startSprint);
+    const newEnd = newStart + parseFloat(formData.duration);
+
+    const overlappingTask = state.tasks.find(t => {
+      if (t.developerId !== formData.developerId) return false;
+      const tEnd = t.startSprint + t.duration;
+      return newStart < tEnd && newEnd > t.startSprint;
+    });
+
+    if (overlappingTask) {
+      const devName = state.developers.find(d => d.id === formData.developerId)?.name || 'This developer';
+      const confirmed = window.confirm(
+        `${devName} is already assigned a task in that time, do you want to add it anyway?`
+      );
+      if (!confirmed) return;
+    }
+
     const newTask = {
       id: `task-${Date.now()}`,
       title: formData.title.trim(),
       developerId: formData.developerId,
-      startSprint: parseFloat(formData.startSprint),
+      startSprint: newStart,
       duration: parseFloat(formData.duration),
       color: formData.color,
     };
