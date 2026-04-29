@@ -482,6 +482,94 @@ body {
   padding: 12px 0;
 }
 
+/* RC Manager inline row */
+.rc-manager-row .developer-name,
+.rc-name-cell {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.rc-add-btn {
+  opacity: 0;
+  color: white;
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  cursor: pointer;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  transition: all 0.2s;
+}
+
+.rc-name-cell:hover .rc-add-btn {
+  opacity: 1;
+}
+
+.rc-add-btn:hover {
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(1.15);
+}
+
+/* Inline RC date marker (in the manager row) */
+.rc-inline-marker {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  z-index: 6;
+}
+
+.rc-inline-label {
+  display: inline-block;
+  padding: 3px 8px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(185, 28, 28, 0.4);
+  transition: opacity 0.15s;
+}
+
+.rc-inline-label:hover {
+  opacity: 0.85;
+}
+
+.rc-inline-delete {
+  opacity: 0;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.15s;
+}
+
+.rc-inline-marker:hover .rc-inline-delete {
+  opacity: 1;
+}
+
+.rc-inline-delete:hover {
+  background: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
 /* OoO Bar */
 .ooo-bar {
   position: absolute;

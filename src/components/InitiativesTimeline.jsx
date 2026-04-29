@@ -79,7 +79,7 @@ const InitiativesTimeline = () => {
         ) : (
           <>
             <TodayIndicator />
-            <RcDateLines rcDates={state.rcDates} />
+            <RcDateLines rcDates={state.rcDates.filter(rc => rc.quarter === state.currentQuarter)} />
             {initiatives.map(initiative => {
               const left = sprintToPixels(initiative.startSprint) + 6;
               const width = (initiative.endSprint - initiative.startSprint) * SPRINT_WIDTH_PX - 12;

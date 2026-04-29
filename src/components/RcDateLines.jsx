@@ -1,137 +1,24 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useQuarterSprints } from '../hooks/useQuarterSprints';
-import { useApp } from '../context/AppContext';
 
 const RcDateLines = ({ rcDates }) => {
-  const { state, updateRcDate } = useApp();
-  const { Q_START_DATE, SPRINT_WIDTH_PX, SPRINT_DURATION_DAYS, FIRST_SPRINT } = useQuarterSprints();
-  const [selectedRcId, setSelectedRcId] = useState(null);
-  const selectedRc = rcDates.find(rc => rc.id === selectedRcId) || null;
+  const { Q_START_DATE, SPRINT_WIDTH_PX, SPRINT_DURATION_DAYS } = useQuarterSprints();
 
   const calculatePosition = (dateString) => {
     const rcDate = new Date(dateString);
-    const daysSinceStart = Math.floor((rcDate - Q_START_DATE) / (1000 * 60 * 60 * 24));
-    const sprintsFraction = daysSinceStart / SPRINT_DURATION_DAYS;
-    return sprintsFraction * SPRINT_WIDTH_PX;
-  };
-
-  const calculateSprintPosition = (dateString) => {
-    const rcDate = new Date(dateString);
-    const daysSinceStart = Math.floor((rcDate - Q_START_DATE) / (1000 * 60 * 60 * 24));
-    const sprintsFromStart = daysSinceStart / SPRINT_DURATION_DAYS;
-    return FIRST_SPRINT + sprintsFromStart;
-  };
-
-  const getTasksForRc = (rc) => {
-    const rcSprintPosition = calculateSprintPosition(rc.date);
-    const excluded = rc.excludedTaskIds || [];
-
-    // Find the previous RC (sorted by date) to avoid showing tasks already in an earlier RC
-    const sortedRcs = [...rcDates].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const rcIndex = sortedRcs.findIndex(r => r.id === rc.id);
-    const prevRc = rcIndex > 0 ? sortedRcs[rcIndex - 1] : null;
-    const prevSprintPosition = prevRc ? calculateSprintPosition(prevRc.date) : -Infinity;
-
-    return state.tasks.filter(task => {
-      const taskEnd = task.startSprint + task.duration;
-      return taskEnd <= rcSprintPosition && taskEnd > prevSprintPosition && !excluded.includes(task.id);
-    });
-  };
-
-  const removeTaskFromRc = (rc, taskId) => {
-    const excluded = rc.excludedTaskIds || [];
-    updateRcDate(rc.id, { excludedTaskIds: [...excluded, taskId] });
-  };
-
-  const handleRcClick = (rc) => {
-    setSelectedRcId(rc.id);
-  };
-
-  const handleCloseModal = () => {
-    setSelectedRcId(null);
-  };
-
-  const getDeveloperName = (developerId) => {
-    const developer = state.developers.find(dev => dev.id === developerId);
-    return developer ? developer.name : 'Unknown';
+    const days = (rcDate - Q_START_DATE) / (1000 * 60 * 60 * 24);
+    return (days / SPRINT_DURATION_DAYS) * SPRINT_WIDTH_PX;
   };
 
   return (
     <>
-      {rcDates.map((rc) => {
-        const position = calculatePosition(rc.date);
-        return (
-          <div
-            key={rc.id}
-            className="rc-date-line"
-            style={{ left: `${position}px` }}
-          >
-            <div
-              className="rc-date-label"
-              onClick={() => handleRcClick(rc)}
-              style={{ cursor: 'pointer' }}
-            >
-              {rc.label}
-            </div>
-          </div>
-        );
-      })}
-
-      {selectedRc && (
-        <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Completed by {selectedRc.label}</h2>
-            <p style={{ color: '#6b7280', marginBottom: '20px', fontSize: '14px' }}>
-              {new Date(selectedRc.date).toLocaleDateString('en-US', {
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric'
-              })}
-            </p>
-
-            <div className="rc-tasks-list">
-              {getTasksForRc(selectedRc).length === 0 ? (
-                <p style={{ color: '#9ca3af', textAlign: 'center', padding: '20px' }}>
-                  No tasks completed before this RC date
-                </p>
-              ) : (
-                getTasksForRc(selectedRc).map(task => (
-                  <div key={task.id} className="rc-task-item">
-                    <div
-                      className="rc-task-color"
-                      style={{ backgroundColor: task.color || '#93C5FD' }}
-                    />
-                    <div className="rc-task-details">
-                      <div className="rc-task-title">{task.title}</div>
-                      <div className="rc-task-meta">
-                        {getDeveloperName(task.developerId)} •
-                        Sprint {task.startSprint} - {task.startSprint + task.duration}
-                        ({task.duration} sprint{task.duration !== 1 ? 's' : ''})
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeTaskFromRc(selectedRc, task.id)}
-                      title="Remove from this RC"
-                      style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '16px', padding: '0 4px' }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="modal-buttons">
-              <button
-                onClick={handleCloseModal}
-                className="btn btn-full btn-primary"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {rcDates.map((rc) => (
+        <div
+          key={rc.id}
+          className="rc-date-line"
+          style={{ left: `${calculatePosition(rc.date)}px` }}
+        />
+      ))}
     </>
   );
 };

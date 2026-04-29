@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import SprintHeaders from './SprintHeaders';
 import DeveloperRow from './DeveloperRow';
 import RcDateLines from './RcDateLines';
+import RcDateManager from './RcDateManager';
 import TodayIndicator from './TodayIndicator';
 import { getQuarterConfig } from '../utils/quarterConfig';
 
@@ -38,8 +39,9 @@ const SprintTimeline = () => {
           </div>
         ) : (
           <>
+            <RcDateManager />
             <TodayIndicator />
-            <RcDateLines rcDates={state.rcDates} />
+            <RcDateLines rcDates={state.rcDates.filter(rc => rc.quarter === state.currentQuarter)} />
             {activeDevelopers.map((developer) => {
               const developerTasks = state.tasks.filter(
                 task =>

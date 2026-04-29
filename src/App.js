@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp, PODS } from './context/AppContext';
 import DeveloperManager from './components/DeveloperManager';
-import RcDateManager from './components/RcDateManager';
 import QuarterSelector from './components/QuarterSelector';
 import SprintTimeline from './components/SprintTimeline';
 import InitiativesTimeline from './components/InitiativesTimeline';
@@ -46,7 +45,6 @@ const AppInner = () => {
         <div className="toolbar-controls">
           <GoogleSheetSync />
           <DeveloperManager />
-          <RcDateManager />
         </div>
       </div>
 
