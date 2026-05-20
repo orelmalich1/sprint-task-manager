@@ -91,8 +91,12 @@ const DeveloperRow = ({ developer, tasks, ooo }) => {
                   key={entry.id}
                   className="ooo-bar"
                   style={{ left: `${left}px`, width: `${Math.max(width, 20)}px` }}
-                  title={entry.note ? `OoO: ${entry.note}\nClick to remove` : 'Out of Office — click to remove'}
-                  onClick={() => removeOoo(entry.id)}
+                  title={entry.note ? `OoO: ${entry.note}` : 'Out of Office'}
+                  onClick={() => {
+                    if (window.confirm('Remove this Out of Office entry?')) {
+                      removeOoo(entry.id);
+                    }
+                  }}
                 >
                   <span className="ooo-label">{entry.note || 'OoO'}</span>
                 </div>
